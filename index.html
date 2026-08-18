@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Nhập Liệu Thông Tin Ứng Viên</title>
+    <meta name="description" content="Hệ thống quản lý và nhập liệu thông tin ứng viên chuyên nghiệp">
+    <link rel="stylesheet" href="index.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <img src="assets/logo_agari.png" alt="AGARI" style="max-height: 35px; border-radius: 4px; background: white; padding: 2px;">
+            <div class="brand-text" style="margin-left: 10px;">
+                <h2>AGARI</h2>
+                <p>Tuyển dụng</p>
+            </div>
+        </div>
+
+        <div class="sidebar-menu">
+            <div class="menu-title">Data Entry</div>
+            <button class="nav-item active" data-view="form">
+                <span class="nav-icon">📝</span> Form Nhập Liệu
+            </button>
+            
+            <div class="menu-title admin-only">Management</div>
+            <button class="nav-item admin-only" data-view="table">
+                <span class="nav-icon">📊</span> Danh sách & Tổng quan
+            </button>
+        </div>
+
+        <div class="sidebar-user">
+            <div class="user-avatar">👤</div>
+            <div class="user-info">
+                <h4 id="displayRoleName">Guest User</h4>
+                <p><span class="status-dot connected"></span> Online</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-wrapper">
+        
+        <!-- TOP HEADER -->
+        <header class="top-header">
+            <div class="header-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" placeholder="Tìm kiếm...">
+            </div>
+            <div class="header-actions">
+                <button class="header-btn" title="Thông báo">🔔</button>
+                <button class="header-btn admin-only" id="settingsBtn" title="Cài đặt hệ thống">⚙️</button>
+                <button class="login-btn" id="loginBtn">Đăng nhập Admin</button>
+                <button class="header-btn admin-only" id="logoutBtn" title="Đăng xuất">🚪</button>
+            </div>
+        </header>
+
+        <div class="content-area">
+            
+            <!-- ADMIN DASHBOARD STATS -->
+            <div class="stats-grid admin-only">
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>Tổng ứng viên</span>
+                        <span>👥</span>
+                    </div>
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-trend">+0% vs tháng trước</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>Hôm nay</span>
+                        <span>📅</span>
+                    </div>
+                    <div class="stat-value" id="todayCount">0</div>
+                    <div class="stat-trend">+0% vs hôm qua</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span>Đang làm việc</span>
+                        <span>✅</span>
+                    </div>
+                    <div class="stat-value" id="pendingCount">0</div>
+                    <div class="stat-trend">Trạng thái Active</div>
+                </div>
+            </div>
+
+            <!-- FORM VIEW -->
+            <div id="formView" class="view-section">
+                <h2 class="page-title">Nhập Liệu Mới</h2>
+                
+                <div class="step-indicator">
+                    <div class="step-item active" data-step="1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Thông tin cá nhân</div>
+                    </div>
+                    <div class="step-item" data-step="2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Ảnh CCCD & SMS</div>
+                    </div>
+                    <div class="step-item" data-step="3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Tài khoản ngân hàng</div>
+                    </div>
+                    <div class="step-item" data-step="4">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Ảnh VNeID</div>
+                    </div>
+                </div>
+
+                <form id="entryForm">
+                    <!-- Step 1: Thông tin cá nhân -->
+                    <div class="form-step active" data-step="1">
+                        <div class="form-card" style="position: relative;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+                                <h2 class="section-title" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0;"><span class="section-icon">👤</span> Thông Tin Cá Nhân</h2>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnOpenOCR" style="background-color: var(--primary); color: #000; font-weight: bold; border-radius: 20px; padding: 0.5rem 1rem;">
+                                    ⚡ Quét CCCD Tự Động
+                                </button>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="maOps">Mã OPS <span class="required-mark">*</span></label>
+                                    <input type="text" id="maOps" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="idHrm">ID HRM / CCCD <span class="required-mark">*</span></label>
+                                    <input type="text" id="idHrm" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="hoTenVN">Họ tên VN - có dấu <span class="required-mark">*</span></label>
+                                    <input type="text" id="hoTenVN" required placeholder="Nguyễn Văn A">
+                                </div>
+                                <div class="form-group">
+                                    <label for="hoTenEN">Họ tên EN - không dấu <span class="required-mark">*</span></label>
+                                    <input type="text" id="hoTenEN" required placeholder="NGUYEN VAN A">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quocTich">Quốc tịch</label>
+                                    <select id="quocTich">
+                                        <option value="Việt Nam">Việt Nam</option>
+                                        <option value="Khác">Khác</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="gioiTinh">Giới tính</label>
+                                    <select id="gioiTinh">
+                                        <option value="Nam">Nam</option>
+                                        <option value="Nữ">Nữ</option>
+                                        <option value="Khác">Khác</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ngaySinh">Ngày sinh <span class="required-mark">*</span></label>
+                                    <input type="date" id="ngaySinh" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="soCCCD">Số CCCD <span class="required-mark">*</span></label>
+                                    <input type="text" id="soCCCD" required maxlength="12" pattern="\d{12}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="ngayCapCCCD">Ngày cấp CCCD <span class="required-mark">*</span></label>
+                                    <input type="date" id="ngayCapCCCD" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="noiCapCCCD">Nơi cấp CCCD <span class="required-mark">*</span></label>
+                                    <select id="noiCapCCCD" required>
+                                        <option value="Cục Cảnh sát quản lý hành chính về trật tự xã hội">Cục Cảnh sát quản lý hành chính về trật tự xã hội</option>
+                                        <option value="Cục Cảnh sát ĐKQL cư trú và DLQG về dân cư">Cục Cảnh sát ĐKQL cư trú và DLQG về dân cư</option>
+                                        <option value="Bộ Công an">Bộ Công an</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="diaChiThuongTru">Địa chỉ thường trú (theo CCCD) <span class="required-mark">*</span></label>
+                                    <textarea id="diaChiThuongTru" required placeholder="Nhập địa chỉ..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dienThoai">Điện thoại <span class="required-mark">*</span></label>
+                                    <input type="tel" id="dienThoai" required placeholder="0xxxxxxxxx" pattern="0\d{9,10}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="email">Email</label>
+                                    <input type="email" id="email" placeholder="example@email.com">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-navigation" style="justify-content: flex-end;">
+                            <button type="button" class="btn btn-primary btn-next">Tiếp tục <span>→</span></button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Ảnh CCCD & SMS -->
+                    <div class="form-step" data-step="2">
+                        <div class="form-card">
+                            <h2 class="section-title"><span class="section-icon">📷</span> Tải Ảnh CCCD & SMS</h2>
+                            <div class="upload-grid">
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh SMS xác nhận thuê bao chính chủ</span>
+                                    <div class="upload-zone" data-field="anhSMS">
+                                        <div class="upload-icon">📁</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh vào đây</div>
+                                        <div class="upload-hint">PNG, JPG, PDF - Tối đa 5MB</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh CCCD mặt trước</span>
+                                    <div class="upload-zone" data-field="anhCCCDTruoc">
+                                        <div class="upload-icon">🪪</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh vào đây</div>
+                                        <div class="upload-hint">PNG, JPG, PDF - Tối đa 5MB</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh CCCD mặt sau</span>
+                                    <div class="upload-zone" data-field="anhCCCDSau">
+                                        <div class="upload-icon">🪪</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh vào đây</div>
+                                        <div class="upload-hint">PNG, JPG, PDF - Tối đa 5MB</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-navigation">
+                            <button type="button" class="btn btn-secondary btn-prev"><span>←</span> Quay lại</button>
+                            <button type="button" class="btn btn-primary btn-next">Tiếp tục <span>→</span></button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Tài khoản ngân hàng -->
+                    <div class="form-step" data-step="3">
+                        <div class="form-card">
+                            <h2 class="section-title"><span class="section-icon">🏦</span> Tài Khoản Chính</h2>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="soTaiKhoan1">Số tài khoản <span class="required-mark">*</span></label>
+                                    <input type="text" id="soTaiKhoan1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="chuTaiKhoan1">Chủ tài khoản EN <span class="required-mark">*</span></label>
+                                    <input type="text" id="chuTaiKhoan1" required placeholder="NGUYEN VAN A">
+                                </div>
+                                <div class="form-group">
+                                    <label for="tenNganHang1">Tên ngân hàng</label>
+                                    <select id="tenNganHang1">
+                                        <option value="VPBank">VPBank</option>
+                                        <option value="BIDV">BIDV</option>
+                                        <option value="Vietcombank">Vietcombank</option>
+                                        <option value="VietinBank">VietinBank</option>
+                                        <option value="MBBANK">MBBANK</option>
+                                        <option value="ACB">ACB</option>
+                                        <option value="SHB">SHB</option>
+                                        <option value="Techcombank">Techcombank</option>
+                                        <option value="Agribank">Agribank</option>
+                                        <option value="HDBank">HDBank</option>
+                                        <option value="LienVietPostBank">LienVietPostBank</option>
+                                        <option value="VIB">VIB</option>
+                                        <option value="SeABank">SeABank</option>
+                                        <option value="VBSP">VBSP</option>
+                                        <option value="TPBank">TPBank</option>
+                                        <option value="OCB">OCB</option>
+                                        <option value="MSB">MSB</option>
+                                        <option value="Sacombank">Sacombank</option>
+                                        <option value="Eximbank">Eximbank</option>
+                                        <option value="SCB">SCB</option>
+                                        <option value="VDB">VDB</option>
+                                        <option value="Nam A Bank">Nam A Bank</option>
+                                        <option value="ABBANK">ABBANK</option>
+                                        <option value="PVcomBank">PVcomBank</option>
+                                        <option value="Bac A Bank">Bac A Bank</option>
+                                        <option value="UOB">UOB</option>
+                                        <option value="Woori">Woori</option>
+                                        <option value="HSBC">HSBC</option>
+                                        <option value="SCBVL">SCBVL</option>
+                                        <option value="PBVN">PBVN</option>
+                                        <option value="SHBVN">SHBVN</option>
+                                        <option value="NCB">NCB</option>
+                                        <option value="VietABank">VietABank</option>
+                                        <option value="Viet Capital Bank">Viet Capital Bank</option>
+                                        <option value="DongA Bank">DongA Bank</option>
+                                        <option value="Vietbank">Vietbank</option>
+                                        <option value="ANZVL">ANZVL</option>
+                                        <option value="OceanBank">OceanBank</option>
+                                        <option value="CIMB">CIMB</option>
+                                        <option value="Kienlongbank">Kienlongbank</option>
+                                        <option value="IVB">IVB</option>
+                                        <option value="BAOVIET Bank">BAOVIET Bank</option>
+                                        <option value="SAIGONBANK">SAIGONBANK</option>
+                                        <option value="Co-opBank">Co-opBank</option>
+                                        <option value="GPBank">GPBank</option>
+                                        <option value="VRB">VRB</option>
+                                        <option value="CB">CB</option>
+                                        <option value="HLBVN">HLBVN</option>
+                                        <option value="PG Bank">PG Bank</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="toggle-wrapper">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="chinhChu" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span style="font-weight: 500;">Chính chủ: <span class="toggle-label-text" style="color:var(--primary);">Yes</span></span>
+                            </div>
+                        </div>
+
+                        <div class="form-navigation">
+                            <button type="button" class="btn btn-secondary btn-prev"><span>←</span> Quay lại</button>
+                            <button type="button" class="btn btn-primary btn-next">Tiếp tục <span>→</span></button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Ảnh VNeID (formerly Step 5) -->
+                    <div class="form-step" data-step="4">
+                        <div class="form-card">
+                            <h2 class="section-title"><span class="section-icon">📱</span> Tải Ảnh VNeID</h2>
+                            
+                            <div class="vneid-guide" style="background: rgba(184, 245, 50, 0.05); border-left: 4px solid var(--primary); padding: 1rem 1.5rem; border-radius: 4px; margin-bottom: 2rem;">
+                                <h3 style="color: var(--primary); margin-bottom: 0.5rem; font-size: 1rem;">💡 Hướng dẫn chụp ảnh VNeID:</h3>
+                                <ul style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; padding-left: 1.2rem; margin: 0;">
+                                    <li><strong>Ảnh VNeID mức 2:</strong> Mở ứng dụng VNeID, vào phần "Tài khoản định danh điện tử" chụp màn hình hiển thị <em>"Đã định danh mức 2"</em>.</li>
+                                    <li><strong>Ảnh Chủ hộ VNeID:</strong> Vào mục "Thông tin cư trú", chụp màn hình phần hiển thị thông tin <em>Chủ hộ</em>.</li>
+                                    <li><strong>Ảnh mối quan hệ:</strong> Chụp màn hình phần danh sách thành viên trong gia đình thể hiện <em>mối quan hệ với chủ hộ</em>.</li>
+                                </ul>
+                            </div>
+
+                            <div class="upload-grid">
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh VNeID mức 2</span>
+                                    <div class="upload-zone" data-field="anhVNeID2">
+                                        <div class="upload-icon">📱</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh Chủ hộ VNeID</span>
+                                    <div class="upload-zone" data-field="anhVNeIDChuHo">
+                                        <div class="upload-icon">🏠</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                                <div class="upload-item">
+                                    <span class="upload-label">Ảnh VNeID (Mối quan hệ)</span>
+                                    <div class="upload-zone" data-field="anhVNeIDMQH">
+                                        <div class="upload-icon">👥</div>
+                                        <div class="upload-text">Nhấn hoặc kéo thả ảnh</div>
+                                        <input type="file" class="hidden" accept="image/*,.pdf">
+                                    </div>
+                                    <div class="image-preview-container">
+                                        <img src="" alt="Preview" class="image-preview">
+                                        <button type="button" class="remove-image-btn">✕</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-navigation">
+                            <button type="button" class="btn btn-secondary btn-prev"><span>←</span> Quay lại</button>
+                            <button type="submit" class="btn btn-success" id="btnSubmit">💾 Lưu Thông Tin</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- TABLE VIEW (ADMIN ONLY) -->
+            <div id="tableView" class="view-section hidden">
+                <h2 class="page-title">Danh Sách Ứng Viên</h2>
+                <div class="form-card">
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <input type="text" id="searchBox" placeholder="Tìm kiếm theo mã, CCCD, tên...">
+                        </div>
+                        <button class="btn btn-secondary" id="btnExport">📥 Xuất CSV</button>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Mã OPS</th>
+                                    <th>ID HRM</th>
+                                    <th>Họ tên VN</th>
+                                    <th>Số CCCD</th>
+                                    <th>Điện thoại</th>
+                                    <th>Ngân hàng</th>
+                                    <th>Ngày vào làm</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- Data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="emptyState" class="empty-state" style="display:none;">
+                        <div class="empty-state-icon">📄</div>
+                        <h3>Chưa có dữ liệu</h3>
+                        <p>Danh sách ứng viên trống. Hãy chuyển sang Tab Nhập liệu để thêm mới.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- content-area -->
+    </main>
+</div>
+
+    <!-- Record Details Modal -->
+    <div class="modal-overlay" id="recordModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Chi tiết ứng viên</h3>
+                <button type="button" class="btn-icon" id="btnCloseModal">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Record details will be injected here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnCloseModalFooter">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OCR Scanner Modal -->
+    <div class="modal-overlay" id="ocrModal">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>⚡ Quét thông tin CCCD</h3>
+                <button type="button" class="btn-icon" id="btnCloseOCRModal">✕</button>
+            </div>
+            <div class="modal-body" id="ocrModalBody" style="text-align: center;">
+                
+                <!-- State 1: Upload -->
+                <div id="ocrStateUpload">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <!-- Mặt trước -->
+                        <div>
+                            <span style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Ảnh mặt trước <span class="required-mark">*</span></span>
+                            <div class="ocr-dropzone" id="ocrDropzoneFront" style="padding: 1.5rem 1rem;">
+                                <div class="upload-icon" style="font-size: 1.8rem; margin-bottom: 0.5rem;">🪪</div>
+                                <p style="font-size: 0.85rem; margin-bottom: 0.5rem;">Mặt trước CCCD</p>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ocrFileInputFront').click()" style="width: 100%; justify-content: center; padding: 0.4rem;">Chọn ảnh</button>
+                                <input type="file" id="ocrFileInputFront" class="hidden" accept="image/*">
+                            </div>
+                            <!-- Preview for front -->
+                            <div id="ocrPreviewFrontContainer" class="hidden" style="margin-top: 0.5rem; position: relative;">
+                                <img id="ocrPreviewFrontThumbnail" src="" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);">
+                                <button type="button" id="btnRemoveOcrFront" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.8rem;">✕</button>
+                            </div>
+                        </div>
+
+                        <!-- Mặt sau -->
+                        <div>
+                            <span style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Ảnh mặt sau <span class="required-mark">*</span></span>
+                            <div class="ocr-dropzone" id="ocrDropzoneBack" style="padding: 1.5rem 1rem;">
+                                <div class="upload-icon" style="font-size: 1.8rem; margin-bottom: 0.5rem;">🪪</div>
+                                <p style="font-size: 0.85rem; margin-bottom: 0.5rem;">Mặt sau CCCD</p>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ocrFileInputBack').click()" style="width: 100%; justify-content: center; padding: 0.4rem;">Chọn ảnh</button>
+                                <input type="file" id="ocrFileInputBack" class="hidden" accept="image/*">
+                            </div>
+                            <!-- Preview for back -->
+                            <div id="ocrPreviewBackContainer" class="hidden" style="margin-top: 0.5rem; position: relative;">
+                                <img id="ocrPreviewBackThumbnail" src="" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);">
+                                <button type="button" id="btnRemoveOcrBack" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.8rem;">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" id="btnStartOCR" style="width: 100%; justify-content: center;" disabled>Bắt đầu quét CCCD</button>
+                </div>
+
+                <!-- State 2: Processing -->
+                <div id="ocrStateProcessing" class="hidden">
+                    <div class="ocr-scanner-animation">
+                        <div id="ocrImagesContainer" style="display: flex; width: 100%; height: 100%;">
+                            <img id="ocrPreviewImage1" src="" alt="Front" style="width: 100%; object-fit: cover; opacity: 0.5;">
+                            <img id="ocrPreviewImage2" src="" alt="Back" style="width: 50%; object-fit: cover; border-left: 1px solid var(--border-color); opacity: 0.5; display: none;">
+                        </div>
+                        <div class="scanner-line"></div>
+                    </div>
+                    <h4 style="margin-top: 1.5rem; color: var(--primary);">Đang phân tích CCCD...</h4>
+                    <div class="ocr-progress-container">
+                        <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+                    </div>
+                    <p class="text-muted" id="ocrProgressText">Đang nhận diện thông tin...</p>
+                </div>
+
+                <!-- State 3: Result -->
+                <div id="ocrStateResult" class="hidden">
+                    <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">✓</div>
+                    <h4 style="color: var(--text-main); margin-bottom: 0.5rem;">Đã nhận diện thông tin CCCD</h4>
+                    <p class="text-muted" style="margin-bottom: 2rem;"><span id="ocrSuccessCount">0</span>/8 trường đã được điền tự động.</p>
+                    <div style="display: flex; gap: 1rem; justify-content: center;">
+                        <button type="button" class="btn btn-secondary" id="btnOCRRetry">Quét lại</button>
+                        <button type="button" class="btn btn-primary" id="btnOCRConfirm">Kiểm tra thông tin</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>⚙️ Cài đặt hệ thống</h3>
+            <button class="btn btn-icon" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="scriptUrl" style="font-weight:600;">URL Google Apps Script</label>
+                <input type="url" id="scriptUrl" placeholder="https://script.google.com/.../exec">
+            </div>
+            <div class="form-group" style="margin-top:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
+                <label for="adminPin" style="font-weight:600;">Mã PIN Quản Trị Viên mới</label>
+                <input type="password" id="adminPin" placeholder="Để trống nếu không muốn đổi">
+                <span style="font-size:0.75rem; color:var(--text-secondary);">Mặc định là 123456.</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeSettingsModal()">Hủy</button>
+            <button class="btn btn-primary" id="saveSettings">💾 Lưu cài đặt</button>
+        </div>
+    </div>
+</div>
+
+<!-- Login Modal -->
+<div id="loginModal" class="modal-overlay">
+    <div class="modal" style="max-width:400px;">
+        <div class="modal-header">
+            <h3>🔐 Đăng nhập Quản Trị</h3>
+            <button class="btn btn-icon" onclick="closeLoginModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="loginPinInput">Mã PIN</label>
+                <input type="password" id="loginPinInput" placeholder="Nhập mã PIN..." required>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeLoginModal()">Hủy</button>
+            <button class="btn btn-primary" id="submitLoginBtn">Đăng nhập</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+
+</body>
+</html>
