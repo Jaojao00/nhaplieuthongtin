@@ -1323,3 +1323,21 @@ body.is-admin .login-btn {
   50% { box-shadow: 0 0 15px 0 rgba(184, 245, 50, 0); border-color: var(--primary); background: rgba(184, 245, 50, 0); }
   100% { box-shadow: none; }
 }
+
+.avatar-female {
+  background-image: url('./assets/avatars.png');
+  background-size: 200% 100%;
+  background-position: left center;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background-color: white;
+}
+
+.avatar-male {
+  background-image: url('./assets/avatars.png');
+  background-size: 200% 100%;
+  background-position: right center;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background-color: white;
+}

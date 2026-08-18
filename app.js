@@ -1045,7 +1045,12 @@
         <td>${idx + 1}</td>
         <td><strong>${esc(record.maOps)}</strong></td>
         <td>${esc(record.idHrm)}</td>
-        <td>${esc(record.hoTenVN)}</td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="${record.gioiTinh === 'Nam' ? 'avatar-male' : 'avatar-female'}" style="width: 32px; height: 32px; flex-shrink: 0;"></div>
+            ${esc(record.hoTenVN)}
+          </div>
+        </td>
         <td>${esc(record.soCCCD)}</td>
         <td>${esc(record.dienThoai)}</td>
         <td>${esc(record.tenNganHang1)}</td>
@@ -1078,8 +1083,14 @@
     const modalBody = $('#modalBody');
     if (!modalBody) return;
 
+    let avatarClass = 'avatar-female';
+    if (r.gioiTinh === 'Nam') avatarClass = 'avatar-male';
+
     modalBody.innerHTML = `
       <div class="modal-record">
+        <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+          <div class="${avatarClass}" style="width: 80px; height: 80px;"></div>
+        </div>
         <h3>Thông tin cá nhân</h3>
         <div class="modal-grid">
           ${modalField('Mã OPS', r.maOps)}
