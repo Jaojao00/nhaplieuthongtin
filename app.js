@@ -186,8 +186,6 @@
       img1.style.width = '50%';
       setUploadPreview('anhCCCDSau', b64_2);
     }
-
-  async function startOCRProcess() {
     const progress = document.getElementById('ocrProgressBar');
     const text = document.getElementById('ocrProgressText');
 
