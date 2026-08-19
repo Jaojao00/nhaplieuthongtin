@@ -209,7 +209,7 @@
         placeOfOrigin: "",
         placeOfResidence: "",
         personalIdentificationDate: "",
-        issuePlace: "Bộ Công An"
+        issuePlace: "Bộ Công an"
     };
 
     if (!window.Tesseract) {
@@ -556,7 +556,7 @@
       placeOfOrigin: "Vĩnh Long",
       placeOfResidence: "Tổ 8, Khóm Tân Lợi, Tân Quới, Vĩnh Long",
       personalIdentificationDate: "2026-02-02",
-      issuePlace: "Bộ Công An"
+      issuePlace: "Bộ Công an"
     }), 500));
   }
 
@@ -565,8 +565,32 @@
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
   }
 
+  function setOCRField(id, value) {
+    const el = document.getElementById(id);
+    if (!el || value === undefined || value === null || value === '') {
+        return false;
+    }
+
+    if (el.tagName === 'SELECT') {
+        const option = [...el.options].find(opt => opt.value === value);
+        if (!option) {
+            console.warn(`OCR: Không tìm thấy option "${value}" trong #${id}`);
+            return false;
+        }
+    }
+
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+
+    el.classList.remove('ocr-filled');
+    void el.offsetWidth;
+    el.classList.add('ocr-filled');
+
+    return true;
+  }
+
   function fillOCRData(data) {
-    let count = 0;
     let nameEN = data.fullNameEN;
     if (!nameEN && data.fullNameVN) {
         nameEN = removeVietnameseTones(data.fullNameVN).toUpperCase();
@@ -585,28 +609,19 @@
         noiCapCCCD: data.issuePlace
     };
 
-    for (const [id, val] of Object.entries(map)) {
-        const el = document.getElementById(id);
-        if (!el) {
-            console.warn(`Không tìm thấy input #${id}`);
-            continue;
+    let count = 0;
+    for (const [id, value] of Object.entries(map)) {
+        if (setOCRField(id, value)) {
+            count++;
         }
-
-        if (val === undefined || val === null || String(val).trim() === '') {
-            continue;
-        }
-
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-
-        count++;
-        el.classList.remove('ocr-filled');
-        void el.offsetWidth;
-        el.classList.add('ocr-filled');
     }
-    
-    document.getElementById('ocrSuccessCount').textContent = count;
+
+    const countEl = document.getElementById('ocrSuccessCount');
+    if (countEl) {
+        countEl.textContent = count;
+    }
+
+    return count;
   }
 
   // --- Init ---
