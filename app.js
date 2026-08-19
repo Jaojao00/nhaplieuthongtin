@@ -357,7 +357,7 @@
             for (let j = i + 1; j < lines.length && j <= i + 3; j++) {
                 let cleaned = lines[j].replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
                 // Strip non-uppercase prefix
-                cleaned = cleaned.replace(/^[^A-ZÀ-Ỹ]+/, '').trim();
+                cleaned = cleaned.replace(/^[^A-ZÁÀẢÃẠÂẤẦẨẪẬĂẮẰẲẴẶÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]+/, '').trim();
                 if (cleaned.length >= 5 && cleaned.length <= 40 && !/\d/.test(cleaned)) {
                     foundName = cleaned;
                     break;
@@ -373,7 +373,7 @@
         const nameCandidates = [];
         for (const line of lines) {
             let cleaned = line.replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
-            cleaned = cleaned.replace(/^[^A-ZÀ-Ỹ]+/, '').trim(); // Try to strip noise
+            cleaned = cleaned.replace(/^[^A-ZÁÀẢÃẠÂẤẦẨẪẬĂẮẰẲẴẶÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]+/, '').trim(); // Try to strip noise
             if (cleaned.length < 5) continue;
 
             const lower = cleaned.toLowerCase();
