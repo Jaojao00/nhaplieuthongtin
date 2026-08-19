@@ -350,32 +350,59 @@
     }
 
     // TÌM HỌ TÊN
-    const nameCandidates = [];
-    for (const line of lines) {
-        const cleaned = line.replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
-        if (cleaned.length < 5) continue;
-
-        const lower = cleaned.toLowerCase();
-        if (lower.includes('căn cước') || lower.includes('công dân') || lower.includes('số định danh') ||
-            lower.includes('ngày sinh') || lower.includes('giới tính') || lower.includes('quốc tịch') ||
-            lower.includes('quê quán') || lower.includes('nơi thường trú') || lower.includes('residence')) {
-            continue;
+    let foundName = '';
+    for (let i = 0; i < lines.length; i++) {
+        const lower = lines[i].toLowerCase();
+        if (lower.includes('họ và tên') || lower.includes('full name')) {
+            for (let j = i + 1; j < lines.length && j <= i + 3; j++) {
+                let cleaned = lines[j].replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
+                // Strip non-uppercase prefix
+                cleaned = cleaned.replace(/^[^A-ZÀ-Ỹ]+/, '').trim();
+                if (cleaned.length >= 5 && cleaned.length <= 40 && !/\d/.test(cleaned)) {
+                    foundName = cleaned;
+                    break;
+                }
+            }
+            break;
         }
-
-        const words = cleaned.split(/\s+/);
-        if (words.length < 2 || words.length > 8) continue;
-
-        const digitCount = (cleaned.match(/\d/g) || []).length;
-        if (digitCount > 2) continue;
-
-        if (!/[A-Za-zÀ-ỹ]/.test(cleaned)) continue;
-
-        nameCandidates.push(cleaned);
     }
 
-    if (nameCandidates.length) {
-        const uppercaseName = nameCandidates.find(name => name === name.toUpperCase());
-        data.fullNameVN = uppercaseName || nameCandidates[0];
+    if (foundName) {
+        data.fullNameVN = foundName;
+    } else {
+        const nameCandidates = [];
+        for (const line of lines) {
+            let cleaned = line.replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
+            cleaned = cleaned.replace(/^[^A-ZÀ-Ỹ]+/, '').trim(); // Try to strip noise
+            if (cleaned.length < 5) continue;
+
+            const lower = cleaned.toLowerCase();
+            if (lower.includes('căn cước') || lower.includes('công dân') || lower.includes('số định danh') ||
+                lower.includes('ngày sinh') || lower.includes('giới tính') || lower.includes('quốc tịch') ||
+                lower.includes('quê quán') || lower.includes('nơi thường trú') || lower.includes('residence') ||
+                lower.includes('cộng hòa') || lower.includes('xã hội') || lower.includes('chủ nghĩa') || 
+                lower.includes('việt nam') || lower.includes('socialist') || lower.includes('republic') ||
+                lower.includes('độc lập') || lower.includes('tự do') || lower.includes('hạnh phúc') ||
+                lower.includes('independence') || lower.includes('freedom') || lower.includes('happiness') ||
+                lower.includes('identity')) {
+                continue;
+            }
+
+            const words = cleaned.split(/\s+/);
+            if (words.length < 2 || words.length > 8) continue;
+
+            const digitCount = (cleaned.match(/\d/g) || []).length;
+            if (digitCount > 0) continue;
+
+            if (!/[A-Za-zÀ-ỹ]/.test(cleaned)) continue;
+
+            nameCandidates.push(cleaned);
+        }
+
+        if (nameCandidates.length) {
+            const uppercaseName = nameCandidates.find(name => name === name.toUpperCase());
+            data.fullNameVN = uppercaseName || nameCandidates[0];
+        }
     }
 
     // GIỚI TÍNH
@@ -501,7 +528,12 @@
         const c = lines[i + 2];
 
         // Dòng 1: bắt đầu ID + mã quốc gia. CCCD checksum
-        const line1Valid = /^I[A-Z]<[A-Z]{3}/.test(a) || /^I<[A-Z]{3}/.test(a) || /^ID[A-Z]{3}/.test(a);
+        // Allow garbage prefix before 'I'
+        const mrzStartIndex = a.indexOf('I');
+        let aClean = a;
+        if (mrzStartIndex > 0) aClean = a.substring(mrzStartIndex);
+
+        const line1Valid = /^I[A-Z]<[A-Z]{3}/.test(aClean) || /^I<[A-Z]{3}/.test(aClean) || /^ID[A-Z]{3}/.test(aClean);
         
         // Dòng 2: YYMMDD + check + gender + ...
         const line2Valid = /^\d{6}\d[MF<]/.test(b);
@@ -518,7 +550,7 @@
                 continue;
             }
 
-            return [a, b, c];
+            return [aClean, b, c];
         }
     }
 
