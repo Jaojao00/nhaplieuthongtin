@@ -21,7 +21,7 @@
   let ADMIN_PIN = localStorage.getItem('adminPin') || '123456';
 
   // --- Google Apps Script URL (stored in localStorage) ---
-  let SCRIPT_URL = localStorage.getItem('googleScriptUrl') || 'https://script.google.com/macros/s/AKfycby4frTN7VToMDIK6stKi_QXlOmmmXYwF74LR5dXeyY61_ABe3XxUff7e1XO1LBzM3CJ/exec';
+  let SCRIPT_URL = localStorage.getItem('googleScriptUrl') || 'https://script.google.com/macros/s/AKfycbxRjg6q8PzpEr14LCCeNmJJzrSn4xJEGWhuaOioBYADbsA7-AzDxm6FoE7ICXxsG2MYDA/exec';
 
   // --- DOM Cache ---
   const $ = (sel) => document.querySelector(sel);
