@@ -414,6 +414,14 @@
         const line2 = mrzLines[1];
         const line3 = mrzLines[2];
 
+        // Document number in Vietnamese MRZ starts at index 5 and is 12 chars long
+        if (line1.length >= 17) {
+            const mrzCccd = line1.substring(5, 17).replace(/</g, '');
+            if (mrzCccd.length === 12) {
+                data.cccdMRZ = mrzCccd;
+            }
+        }
+
         const dob = parseMRZDate(line2.substring(0, 6));
         if (dob) data.dateOfBirth = dob;
 
@@ -458,6 +466,21 @@
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  function calculateICAOChecksum(str) {
+    const weights = [7, 3, 1];
+    let sum = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        let val = 0;
+        if (char >= '0' && char <= '9') val = parseInt(char, 10);
+        else if (char >= 'A' && char <= 'Z') val = char.charCodeAt(0) - 55;
+        else if (char === '<') val = 0;
+        
+        sum += val * weights[i % 3];
+    }
+    return sum % 10;
+  }
+
   function extractMRZLines(text) {
     if (!text) return [];
 
@@ -479,9 +502,9 @@
         const b = lines[i + 1];
         const c = lines[i + 2];
 
-        // Dòng 1: bắt đầu I< + mã quốc gia
-        const line1Valid = /^I<[A-Z]{3}/.test(a);
-
+        // Dòng 1: bắt đầu ID + mã quốc gia. CCCD checksum
+        const line1Valid = /^I[A-Z]<[A-Z]{3}/.test(a) || /^I<[A-Z]{3}/.test(a) || /^ID[A-Z]{3}/.test(a);
+        
         // Dòng 2: YYMMDD + check + gender + ...
         const line2Valid = /^\d{6}\d[MF<]/.test(b);
 
@@ -489,6 +512,14 @@
         const line3Valid = /^[A-Z<]+$/.test(c) && c.includes('<');
 
         if (line1Valid && line2Valid && line3Valid) {
+            // Checksum validate
+            const dobStr = b.substring(0, 6);
+            const dobCheck = parseInt(b.charAt(6), 10);
+            if (calculateICAOChecksum(dobStr) !== dobCheck) {
+                console.warn("MRZ DOB Checksum failed", dobStr);
+                continue;
+            }
+
             return [a, b, c];
         }
     }
@@ -505,11 +536,17 @@
     if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return '';
 
     const currentYear = new Date().getFullYear();
-    const currentYY = currentYear % 100;
+    let year = 2000 + yy;
 
-    let year;
-    if (yy <= currentYY) year = 2000 + yy;
-    else year = 1900 + yy;
+    // Validate using age 14 to 100
+    let age = currentYear - year;
+    if (age < 14 || age > 100) {
+        year = 1900 + yy;
+        age = currentYear - year;
+        if (age < 14 || age > 100) {
+            return ''; // Still invalid
+        }
+    }
 
     const date = new Date(year, mm - 1, dd);
     if (date.getFullYear() !== year || date.getMonth() !== mm - 1 || date.getDate() !== dd) return '';
@@ -551,18 +588,56 @@
     }
   }
 
+  function namesAreEquivalent(name1, name2) {
+    if (!name1 || !name2) return false;
+    const n1 = removeVietnameseTones(name1).toUpperCase().replace(/[^A-Z]/g, '');
+    const n2 = removeVietnameseTones(name2).toUpperCase().replace(/[^A-Z]/g, '');
+    return n1 === n2;
+  }
+
   function validateOCRData(data) {
+    // 1. Cross-check CCCD
+    if (data.cccd && data.cccdMRZ) {
+        if (data.cccd !== data.cccdMRZ) {
+            console.warn('⚠️ CCCD không khớp giữa mặt trước và MRZ:', data.cccd, 'vs', data.cccdMRZ);
+            data.cccd = ''; // Xóa để người dùng tự điền/kiểm tra
+            showToast('Cảnh báo: Số CCCD không khớp giữa mặt trước và MRZ. Vui lòng kiểm tra lại!', 'warning');
+        }
+    } else if (data.cccdMRZ && !data.cccd) {
+        data.cccd = data.cccdMRZ;
+    }
+
     if (data.cccd && !/^\d{12}$/.test(data.cccd)) {
         console.warn('CCCD không hợp lệ:', data.cccd);
         data.cccd = '';
     }
+
+    // 2. Validate Date of Birth
     if (data.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(data.dateOfBirth)) {
         console.warn('Ngày sinh không hợp lệ:', data.dateOfBirth);
         data.dateOfBirth = '';
+    } else if (data.dateOfBirth) {
+        // Validate age
+        const birthYear = parseInt(data.dateOfBirth.substring(0, 4), 10);
+        const age = new Date().getFullYear() - birthYear;
+        if (age < 14 || age > 100) {
+            console.warn('Tuổi không hợp lệ:', age);
+            data.dateOfBirth = '';
+        }
     }
+
     if (data.gender !== 'Nam' && data.gender !== 'Nữ') {
         data.gender = '';
     }
+
+    // 3. Cross-check Names
+    if (data.fullNameVN && data.fullNameEN) {
+        if (!namesAreEquivalent(data.fullNameVN, data.fullNameEN)) {
+            console.warn('⚠️ Tên không khớp giữa mặt trước và MRZ:', data.fullNameVN, 'vs', data.fullNameEN);
+            showToast('Cảnh báo: Họ tên không khớp giữa mặt trước và MRZ.', 'warning');
+        }
+    }
+
     if (data.fullNameVN) {
         data.fullNameVN = data.fullNameVN.replace(/\s+/g, ' ').trim();
     }
