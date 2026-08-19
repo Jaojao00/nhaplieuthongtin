@@ -439,9 +439,13 @@
         const line2 = mrzLines[1];
         const line3 = mrzLines[2];
 
-        // Document number in Vietnamese MRZ starts at index 5 and is 12 chars long
+        // Document number in Vietnamese MRZ normally starts at index 5 and is 12 chars long
         if (line1.length >= 17) {
-            const mrzCccd = line1.substring(5, 17).replace(/</g, '');
+            let mrzCccd = line1.substring(5, 17).replace(/</g, '');
+            // OCR hallucination fix: search for the front CCCD anywhere in line 1
+            if (data.cccd && line1.includes(data.cccd)) {
+                mrzCccd = data.cccd;
+            }
             if (mrzCccd.length === 12) {
                 data.cccdMRZ = mrzCccd;
             }
