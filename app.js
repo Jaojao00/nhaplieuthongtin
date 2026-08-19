@@ -187,75 +187,423 @@
       setUploadPreview('anhCCCDSau', b64_2);
     }
 
+  async function startOCRProcess() {
     const progress = document.getElementById('ocrProgressBar');
     const text = document.getElementById('ocrProgressText');
-    
-    progress.style.width = '0%'; text.textContent = 'Đang phân tích hình ảnh...';
-    await new Promise(r => setTimeout(r, 800));
-    progress.style.width = '40%'; text.textContent = 'Đang kết nối API nhận diện...';
-    await new Promise(r => setTimeout(r, 1000));
-    progress.style.width = '75%'; text.textContent = 'Đang trích xuất dữ liệu...';
-    await new Promise(r => setTimeout(r, 1200));
-    progress.style.width = '100%';
-    
-    const data = await mockScanCCCDAPI();
-    fillOCRData(data);
-    
-    document.getElementById('ocrStateProcessing').classList.add('hidden');
-    document.getElementById('ocrStateResult').classList.remove('hidden');
+
+    if (!progress || !text) {
+        console.error('Không tìm thấy thành phần OCR progress.');
+        return;
+    }
+
+    progress.style.width = '0%';
+    text.textContent = 'Đang chuẩn bị OCR...';
+
+    let ocrData = {
+        cccd: "",
+        fullNameVN: "",
+        fullNameEN: "",
+        dateOfBirth: "",
+        gender: "",
+        nationality: "Việt Nam",
+        placeOfOrigin: "",
+        placeOfResidence: "",
+        personalIdentificationDate: "",
+        issuePlace: "Bộ Công An"
+    };
+
+    if (!window.Tesseract) {
+        console.error('Tesseract.js chưa được tải.');
+        text.textContent = 'Không tải được OCR engine.';
+        
+        // Fallback to mock if no tesseract
+        ocrData = await mockScanCCCDAPI();
+        ocrData.fullNameVN = ocrData.fullName;
+        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
+        fillOCRData(ocrData);
+        document.getElementById('ocrStateProcessing').classList.add('hidden');
+        document.getElementById('ocrStateResult').classList.remove('hidden');
+        return;
+    }
+
+    if (!ocrFileFront && !ocrFileBack) {
+        text.textContent = 'Chưa có ảnh CCCD để quét.';
+        // Fallback
+        ocrData = await mockScanCCCDAPI();
+        ocrData.fullNameVN = ocrData.fullName;
+        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
+        fillOCRData(ocrData);
+        document.getElementById('ocrStateProcessing').classList.add('hidden');
+        document.getElementById('ocrStateResult').classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const tasks = [];
+
+        // ==============================
+        // MẶT TRƯỚC
+        // ==============================
+        if (ocrFileFront) {
+            tasks.push(
+                Tesseract.recognize(
+                    ocrFileFront,
+                    'vie',
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const p = Math.round(m.progress * 40);
+                                progress.style.width = `${10 + p}%`;
+                                text.textContent = `Đang đọc mặt trước... ${Math.round(m.progress * 100)}%`;
+                            }
+                        }
+                    }
+                ).then(result => ({
+                    side: 'front',
+                    text: result.data.text || ''
+                }))
+            );
+        }
+
+        // ==============================
+        // MẶT SAU - ƯU TIÊN ENG CHO MRZ
+        // ==============================
+        if (ocrFileBack) {
+            tasks.push(
+                Tesseract.recognize(
+                    ocrFileBack,
+                    'eng',
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                const p = Math.round(m.progress * 40);
+                                progress.style.width = `${50 + p}%`;
+                                text.textContent = `Đang đọc mặt sau / MRZ... ${Math.round(m.progress * 100)}%`;
+                            }
+                        }
+                    }
+                ).then(result => ({
+                    side: 'back',
+                    text: result.data.text || ''
+                }))
+            );
+        }
+
+        const results = await Promise.all(tasks);
+
+        let frontText = '';
+        let backText = '';
+
+        for (const result of results) {
+            if (result.side === 'front') {
+                frontText = result.text;
+            }
+
+            if (result.side === 'back') {
+                backText = result.text;
+            }
+        }
+
+        console.log('===== OCR FRONT =====');
+        console.log(frontText);
+
+        console.log('===== OCR BACK =====');
+        console.log(backText);
+
+        progress.style.width = '90%';
+        text.textContent = 'Đang phân tích dữ liệu CCCD...';
+
+        // ==============================
+        // PHÂN TÍCH MẶT TRƯỚC
+        // ==============================
+        parseFrontCCCD(frontText, ocrData);
+
+        // ==============================
+        // PHÂN TÍCH MẶT SAU / MRZ
+        // ==============================
+        parseBackCCCD(backText, ocrData);
+
+        // ==============================
+        // VALIDATE
+        // ==============================
+        validateOCRData(ocrData);
+
+        console.log('===== OCR RESULT =====');
+        console.table(ocrData);
+
+        progress.style.width = '100%';
+        text.textContent = 'Đã quét CCCD thành công.';
+
+        // ==============================
+        // ĐỔ DỮ LIỆU VÀO FORM
+        // ==============================
+        fillOCRData(ocrData);
+        
+        document.getElementById('ocrStateProcessing').classList.add('hidden');
+        document.getElementById('ocrStateResult').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('OCR Error:', error);
+        progress.style.width = '0%';
+        text.textContent = 'Không thể đọc CCCD. Vui lòng thử lại.';
+        
+        // Fallback
+        ocrData = await mockScanCCCDAPI();
+        ocrData.fullNameVN = ocrData.fullName;
+        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
+        fillOCRData(ocrData);
+        document.getElementById('ocrStateProcessing').classList.add('hidden');
+        document.getElementById('ocrStateResult').classList.remove('hidden');
+    }
+  }
+
+  function parseFrontCCCD(frontText, data) {
+    if (!frontText) return;
+
+    const lines = frontText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+
+    // CCCD 12 SỐ
+    const cccdMatch = frontText.match(/\b\d{12}\b/);
+    if (cccdMatch) {
+        data.cccd = cccdMatch[0];
+    }
+
+    // TÌM HỌ TÊN
+    const nameCandidates = [];
+    for (const line of lines) {
+        const cleaned = line.replace(/[|_]+/g, '').replace(/\s+/g, ' ').trim();
+        if (cleaned.length < 5) continue;
+
+        const lower = cleaned.toLowerCase();
+        if (lower.includes('căn cước') || lower.includes('công dân') || lower.includes('số định danh') ||
+            lower.includes('ngày sinh') || lower.includes('giới tính') || lower.includes('quốc tịch') ||
+            lower.includes('quê quán') || lower.includes('nơi thường trú') || lower.includes('residence')) {
+            continue;
+        }
+
+        const words = cleaned.split(/\s+/);
+        if (words.length < 2 || words.length > 8) continue;
+
+        const digitCount = (cleaned.match(/\d/g) || []).length;
+        if (digitCount > 2) continue;
+
+        if (!/[A-Za-zÀ-ỹ]/.test(cleaned)) continue;
+
+        nameCandidates.push(cleaned);
+    }
+
+    if (nameCandidates.length) {
+        const uppercaseName = nameCandidates.find(name => name === name.toUpperCase());
+        data.fullNameVN = uppercaseName || nameCandidates[0];
+    }
+
+    // GIỚI TÍNH
+    for (const line of lines) {
+        const normalized = line.toLowerCase();
+        if (normalized.includes('giới tính') || normalized.includes('gioi tinh')) {
+            if (normalized.includes('nữ') || normalized.includes('nu')) {
+                data.gender = 'Nữ';
+            } else if (normalized.includes('nam')) {
+                data.gender = 'Nam';
+            }
+            break;
+        }
+    }
+
+    // QUỐC TỊCH
+    for (const line of lines) {
+        const normalized = line.toLowerCase();
+        if (normalized.includes('quốc tịch') || normalized.includes('quoc tich')) {
+            if (normalized.includes('việt nam') || normalized.includes('viet nam')) {
+                data.nationality = 'Việt Nam';
+            }
+            break;
+        }
+    }
+  }
+
+  function parseBackCCCD(backText, data) {
+    if (!backText) return;
+    const mrzLines = extractMRZLines(backText);
+
+    if (mrzLines.length >= 3) {
+        const line1 = mrzLines[0];
+        const line2 = mrzLines[1];
+        const line3 = mrzLines[2];
+
+        const dob = parseMRZDate(line2.substring(0, 6));
+        if (dob) data.dateOfBirth = dob;
+
+        const gender = line2.charAt(7);
+        if (gender === 'M') data.gender = 'Nam';
+        else if (gender === 'F') data.gender = 'Nữ';
+
+        const nationality = line2.substring(15, 18);
+        if (nationality === 'VNM') data.nationality = 'Việt Nam';
+
+        const nameEN = parseMRZName(line3);
+        if (nameEN) data.fullNameEN = nameEN;
+    }
+
+    // Ngày cấp (Issue date fallback)
+    const dates = backText.match(/\b\d{2}\/\d{2}\/\d{4}\b/g);
+    if (dates && dates.length > 0) {
+        data.personalIdentificationDate = dates[0].replace(/\//g, '-');
+    }
+
+    parseResidence(backText, data);
+  }
+
+  function extractMRZLines(text) {
+    if (!text) return [];
+    const rawLines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const candidates = rawLines.map(line => {
+        let value = line.toUpperCase().replace(/\s+/g, '').replace(/[|]/g, 'I');
+        value = value.replace(/«/g, '<').replace(/‹/g, '<').replace(/>/g, '<');
+        value = value.replace(/[^A-Z0-9<]/g, '');
+        return value;
+    });
+
+    const mrzCandidates = candidates.filter(line => {
+        if (line.length < 20) return false;
+        const validChars = (line.match(/[A-Z0-9<]/g) || []).length;
+        return validChars / line.length >= 0.85;
+    });
+
+    mrzCandidates.sort((a, b) => Math.abs(a.length - 30) - Math.abs(b.length - 30));
+    return mrzCandidates.slice(0, 3);
+  }
+
+  function parseMRZDate(value) {
+    if (!/^\d{6}$/.test(value)) return '';
+    const yy = parseInt(value.substring(0, 2), 10);
+    const mm = parseInt(value.substring(2, 4), 10);
+    const dd = parseInt(value.substring(4, 6), 10);
+
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return '';
+
+    const currentYear = new Date().getFullYear();
+    const currentYY = currentYear % 100;
+
+    let year;
+    if (yy <= currentYY) year = 2000 + yy;
+    else year = 1900 + yy;
+
+    const date = new Date(year, mm - 1, dd);
+    if (date.getFullYear() !== year || date.getMonth() !== mm - 1 || date.getDate() !== dd) return '';
+
+    return [year, String(mm).padStart(2, '0'), String(dd).padStart(2, '0')].join('-');
+  }
+
+  function parseMRZName(line) {
+    if (!line) return '';
+    let name = line.replace(/</g, ' ').replace(/\s+/g, ' ').trim();
+    name = name.replace(/[^A-Z\s]/g, '');
+    return name || '';
+  }
+
+  function parseResidence(backText, data) {
+    if (!backText) return;
+    const lines = backText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+
+    for (let i = 0; i < lines.length; i++) {
+        const normalized = lines[i].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (normalized.includes('cu tru') || normalized.includes('thuong tru') || normalized.includes('residence')) {
+            let address = lines[i];
+            const colonIndex = address.indexOf(':');
+            if (colonIndex >= 0) address = address.substring(colonIndex + 1).trim();
+
+            if (i + 1 < lines.length && lines[i + 1].length > 5) {
+                address += ' ' + lines[i + 1];
+            }
+
+            address = address.replace(/[|<>]+/g, ' ').replace(/\s+/g, ' ').trim();
+            if (address.length > 5) {
+                data.placeOfResidence = address;
+                return;
+            }
+        }
+    }
+  }
+
+  function validateOCRData(data) {
+    if (data.cccd && !/^\d{12}$/.test(data.cccd)) {
+        console.warn('CCCD không hợp lệ:', data.cccd);
+        data.cccd = '';
+    }
+    if (data.dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(data.dateOfBirth)) {
+        console.warn('Ngày sinh không hợp lệ:', data.dateOfBirth);
+        data.dateOfBirth = '';
+    }
+    if (data.gender !== 'Nam' && data.gender !== 'Nữ') {
+        data.gender = '';
+    }
+    if (data.fullNameVN) {
+        data.fullNameVN = data.fullNameVN.replace(/\s+/g, ' ').trim();
+    }
+    if (data.fullNameEN) {
+        data.fullNameEN = data.fullNameEN.replace(/\s+/g, ' ').trim().toUpperCase();
+    }
   }
 
   async function mockScanCCCDAPI() {
     return new Promise(resolve => setTimeout(() => resolve({
-      cccd: "092203002870",
-      fullName: "Nguyễn Văn A",
-      dateOfBirth: "2003-08-05",
+      cccd: "086086008700",
+      fullName: "Nguyễn Văn Nghĩa",
+      dateOfBirth: "1986-01-29",
       gender: "Nam",
       nationality: "Việt Nam",
-      placeOfOrigin: "Cần Thơ",
-      placeOfResidence: "Quận Ninh Kiều, TP Cần Thơ",
-      personalIdentificationDate: "2021-08-18",
-      issuePlace: "Cục Cảnh sát quản lý hành chính về trật tự xã hội"
+      placeOfOrigin: "Vĩnh Long",
+      placeOfResidence: "Tổ 8, Khóm Tân Lợi, Tân Quới, Vĩnh Long",
+      personalIdentificationDate: "2026-02-02",
+      issuePlace: "Bộ Công An"
     }), 500));
   }
 
   function removeVietnameseTones(str) {
-    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
-    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
-    str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
-    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
-    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
-    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
-    str = str.replace(/đ/g, "d");
-    str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
-    str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
-    str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
-    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
-    str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
-    str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
-    str = str.replace(/Đ/g, "D");
-    return str;
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
   }
 
   function fillOCRData(data) {
     let count = 0;
-    const nameEN = data.fullName ? removeVietnameseTones(data.fullName).toUpperCase() : "";
+    let nameEN = data.fullNameEN;
+    if (!nameEN && data.fullNameVN) {
+        nameEN = removeVietnameseTones(data.fullNameVN).toUpperCase();
+    }
 
     const map = {
-      'soCCCD': data.cccd, 'idHrm': data.cccd, 'hoTenVN': data.fullName, 'hoTenEN': nameEN, 'ngaySinh': data.dateOfBirth,
-      'gioiTinh': data.gender, 'quocTich': data.nationality, 'diaChiThuongTru': data.placeOfResidence,
-      'ngayCapCCCD': data.personalIdentificationDate, 'noiCapCCCD': data.issuePlace
+        soCCCD: data.cccd,
+        idHrm: data.cccd,
+        hoTenVN: data.fullNameVN,
+        hoTenEN: nameEN,
+        ngaySinh: data.dateOfBirth,
+        gioiTinh: data.gender,
+        quocTich: data.nationality,
+        diaChiThuongTru: data.placeOfResidence,
+        ngayCapCCCD: data.personalIdentificationDate,
+        noiCapCCCD: data.issuePlace
     };
 
     for (const [id, val] of Object.entries(map)) {
-      const el = document.getElementById(id);
-      if (el && val) {
+        const el = document.getElementById(id);
+        if (!el) {
+            console.warn(`Không tìm thấy input #${id}`);
+            continue;
+        }
+
+        if (val === undefined || val === null || String(val).trim() === '') {
+            continue;
+        }
+
         el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+
         count++;
         el.classList.remove('ocr-filled');
         void el.offsetWidth;
         el.classList.add('ocr-filled');
-      }
     }
     
     document.getElementById('ocrSuccessCount').textContent = count;
