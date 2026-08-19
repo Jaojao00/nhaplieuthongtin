@@ -215,81 +215,68 @@
     if (!window.Tesseract) {
         console.error('Tesseract.js chưa được tải.');
         text.textContent = 'Không tải được OCR engine.';
-        
-        // Fallback to mock if no tesseract
-        ocrData = await mockScanCCCDAPI();
-        ocrData.fullNameVN = ocrData.fullName;
-        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
-        fillOCRData(ocrData);
         document.getElementById('ocrStateProcessing').classList.add('hidden');
-        document.getElementById('ocrStateResult').classList.remove('hidden');
+        document.getElementById('ocrStateUpload').classList.remove('hidden');
         return;
     }
 
     if (!ocrFileFront && !ocrFileBack) {
         text.textContent = 'Chưa có ảnh CCCD để quét.';
-        // Fallback
-        ocrData = await mockScanCCCDAPI();
-        ocrData.fullNameVN = ocrData.fullName;
-        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
-        fillOCRData(ocrData);
         document.getElementById('ocrStateProcessing').classList.add('hidden');
-        document.getElementById('ocrStateResult').classList.remove('hidden');
+        document.getElementById('ocrStateUpload').classList.remove('hidden');
         return;
     }
 
     try {
-        const tasks = [];
+        const results = [];
 
         // ==============================
         // MẶT TRƯỚC
         // ==============================
         if (ocrFileFront) {
-            tasks.push(
-                Tesseract.recognize(
-                    ocrFileFront,
-                    'vie',
-                    {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                const p = Math.round(m.progress * 40);
-                                progress.style.width = `${10 + p}%`;
-                                text.textContent = `Đang đọc mặt trước... ${Math.round(m.progress * 100)}%`;
-                            }
+            const result = await Tesseract.recognize(
+                ocrFileFront,
+                'vie',
+                {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const p = Math.round(m.progress * 40);
+                            progress.style.width = `${10 + p}%`;
+                            text.textContent = `Đang đọc mặt trước... ${Math.round(m.progress * 100)}%`;
                         }
                     }
-                ).then(result => ({
-                    side: 'front',
-                    text: result.data.text || ''
-                }))
+                }
             );
+
+            results.push({
+                side: 'front',
+                text: result.data.text || ''
+            });
         }
 
         // ==============================
         // MẶT SAU - ƯU TIÊN ENG CHO MRZ
         // ==============================
         if (ocrFileBack) {
-            tasks.push(
-                Tesseract.recognize(
-                    ocrFileBack,
-                    'eng',
-                    {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                const p = Math.round(m.progress * 40);
-                                progress.style.width = `${50 + p}%`;
-                                text.textContent = `Đang đọc mặt sau / MRZ... ${Math.round(m.progress * 100)}%`;
-                            }
+            const result = await Tesseract.recognize(
+                ocrFileBack,
+                'eng',
+                {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const p = Math.round(m.progress * 40);
+                            progress.style.width = `${50 + p}%`;
+                            text.textContent = `Đang đọc mặt sau / MRZ... ${Math.round(m.progress * 100)}%`;
                         }
                     }
-                ).then(result => ({
-                    side: 'back',
-                    text: result.data.text || ''
-                }))
+                }
             );
-        }
 
-        const results = await Promise.all(tasks);
+            results.push({
+                side: 'back',
+                text: result.data.text || ''
+            });
+        }
 
         let frontText = '';
         let backText = '';
@@ -344,16 +331,12 @@
 
     } catch (error) {
         console.error('OCR Error:', error);
+
         progress.style.width = '0%';
-        text.textContent = 'Không thể đọc CCCD. Vui lòng thử lại.';
-        
-        // Fallback
-        ocrData = await mockScanCCCDAPI();
-        ocrData.fullNameVN = ocrData.fullName;
-        ocrData.fullNameEN = removeVietnameseTones(ocrData.fullName).toUpperCase();
-        fillOCRData(ocrData);
+        text.textContent = 'Không thể đọc CCCD. Vui lòng kiểm tra ảnh và thử lại.';
+
         document.getElementById('ocrStateProcessing').classList.add('hidden');
-        document.getElementById('ocrStateResult').classList.remove('hidden');
+        document.getElementById('ocrStateUpload').classList.remove('hidden');
     }
   }
 
@@ -448,30 +431,69 @@
     // Ngày cấp (Issue date fallback)
     const dates = backText.match(/\b\d{2}\/\d{2}\/\d{4}\b/g);
     if (dates && dates.length > 0) {
-        data.personalIdentificationDate = dates[0].replace(/\//g, '-');
+        data.personalIdentificationDate = parseVietnameseDate(dates[0]);
     }
 
     parseResidence(backText, data);
   }
 
+  function parseVietnameseDate(value) {
+    if (!value) return '';
+
+    const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return '';
+
+    const [, dd, mm, yyyy] = match;
+
+    const date = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+
+    if (
+        date.getFullYear() !== Number(yyyy) ||
+        date.getMonth() !== Number(mm) - 1 ||
+        date.getDate() !== Number(dd)
+    ) {
+        return '';
+    }
+
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   function extractMRZLines(text) {
     if (!text) return [];
-    const rawLines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    const candidates = rawLines.map(line => {
-        let value = line.toUpperCase().replace(/\s+/g, '').replace(/[|]/g, 'I');
-        value = value.replace(/«/g, '<').replace(/‹/g, '<').replace(/>/g, '<');
-        value = value.replace(/[^A-Z0-9<]/g, '');
-        return value;
-    });
 
-    const mrzCandidates = candidates.filter(line => {
-        if (line.length < 20) return false;
-        const validChars = (line.match(/[A-Z0-9<]/g) || []).length;
-        return validChars / line.length >= 0.85;
-    });
+    const lines = text
+        .split(/\r?\n/)
+        .map(line => {
+            return line
+                .toUpperCase()
+                .replace(/\s+/g, '')
+                .replace(/[|]/g, 'I')
+                .replace(/[«‹>]/g, '<')
+                .replace(/[^A-Z0-9<]/g, '');
+        })
+        .filter(line => line.length >= 25);
 
-    mrzCandidates.sort((a, b) => Math.abs(a.length - 30) - Math.abs(b.length - 30));
-    return mrzCandidates.slice(0, 3);
+    // Tìm 3 dòng MRZ liên tiếp
+    for (let i = 0; i < lines.length - 2; i++) {
+        const a = lines[i];
+        const b = lines[i + 1];
+        const c = lines[i + 2];
+
+        // Dòng 1: bắt đầu I< + mã quốc gia
+        const line1Valid = /^I<[A-Z]{3}/.test(a);
+
+        // Dòng 2: YYMMDD + check + gender + ...
+        const line2Valid = /^\d{6}\d[MF<]/.test(b);
+
+        // Dòng 3: tên
+        const line3Valid = /^[A-Z<]+$/.test(c) && c.includes('<');
+
+        if (line1Valid && line2Valid && line3Valid) {
+            return [a, b, c];
+        }
+    }
+
+    return [];
   }
 
   function parseMRZDate(value) {
@@ -514,7 +536,10 @@
             if (colonIndex >= 0) address = address.substring(colonIndex + 1).trim();
 
             if (i + 1 < lines.length && lines[i + 1].length > 5) {
-                address += ' ' + lines[i + 1];
+                // Ignore if it looks like an MRZ line
+                if (!/[A-Z0-9<]{15,}/.test(lines[i + 1])) {
+                    address += ' ' + lines[i + 1];
+                }
             }
 
             address = address.replace(/[|<>]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -544,20 +569,6 @@
     if (data.fullNameEN) {
         data.fullNameEN = data.fullNameEN.replace(/\s+/g, ' ').trim().toUpperCase();
     }
-  }
-
-  async function mockScanCCCDAPI() {
-    return new Promise(resolve => setTimeout(() => resolve({
-      cccd: "086086008700",
-      fullName: "Nguyễn Văn Nghĩa",
-      dateOfBirth: "1986-01-29",
-      gender: "Nam",
-      nationality: "Việt Nam",
-      placeOfOrigin: "Vĩnh Long",
-      placeOfResidence: "Tổ 8, Khóm Tân Lợi, Tân Quới, Vĩnh Long",
-      personalIdentificationDate: "2026-02-02",
-      issuePlace: "Bộ Công an"
-    }), 500));
   }
 
   function removeVietnameseTones(str) {
@@ -1065,17 +1076,24 @@
         body: JSON.stringify(payload),
       });
 
-      // Try to read response (may fail due to CORS redirect)
+      if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const resultText = await response.text();
+      let result;
       try {
-        const result = await response.json();
-        if (result.status === 'success') {
-          showToast('✅ Dữ liệu đã được lưu lên Google Sheets thành công!', 'success');
-        } else {
-          showToast('⚠️ Lỗi từ server: ' + (result.message || 'Không xác định'), 'error');
-        }
+          result = JSON.parse(resultText);
       } catch {
-        // If can't parse response (CORS), assume success since request went through
-        showToast('✅ Đã gửi dữ liệu lên Google Sheets!', 'success');
+          // Response is not JSON
+          throw new Error('Server không trả về JSON hợp lệ.');
+      }
+
+      if (result.status === 'success') {
+          showToast('✅ Dữ liệu đã được lưu lên Google Sheets thành công!', 'success');
+      } else {
+          showToast('⚠️ Lỗi từ server: ' + (result.message || 'Không xác định'), 'error');
+          throw new Error('Server báo lỗi');
       }
     } catch (error) {
       console.error('Submit error:', error);
